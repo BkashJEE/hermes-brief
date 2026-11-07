@@ -1,0 +1,30 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../style.css">
+<style>
+html,body{height:100%}body{display:flex;flex-direction:column}
+header{padding:10px 12px;border-bottom:1px solid var(--line)}
+#log{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
+.msg{padding:9px 11px;border-radius:10px;white-space:pre-wrap;word-wrap:break-word}
+.me{background:#1b2a4d;align-self:flex-end;max-width:90%}.her{background:var(--card);border:1px solid var(--line)}
+.tool{font:12px ui-monospace,monospace;color:var(--muted)}
+footer{padding:10px 12px;border-top:1px solid var(--line)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}.chips button{font-size:12px;padding:5px 9px}
+</style></head>
+<body>
+<header>
+  <div class="row"><img src="../icons/32.png" width="18" height="18" alt=""><strong class="grow">Ask Hermes about this page</strong><span id="state" class="pill"></span></div>
+  <div id="page" class="small muted" style="margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+  <div id="brief" class="brief small" style="margin-top:8px"></div>
+</header>
+<div id="log"></div>
+<footer>
+  <div class="chips">
+    <button class="ghost" data-q="Give me a brief of this page: the key points and why it matters.">Brief this</button>
+    <button class="ghost" data-q="What are the 3 most useful things I can do with this?">What can I do with it?</button>
+    <button class="ghost" data-q="Explain this simply, like I'm new to it.">Explain simply</button>
+    <button class="ghost" id="saveBtn">Save &amp; brief</button>
+  </div>
+  <div class="row"><textarea id="q" class="grow" rows="2" placeholder="Ask anything about this page…"></textarea><button id="send">Ask</button></div>
+  <div class="small muted" style="margin-top:6px">Hermes reads this page only when you ask. Answers come from your own Hermes.</div>
+</footer>
+<script type="module" src="sidepanel.js"></script>
+</body></html>

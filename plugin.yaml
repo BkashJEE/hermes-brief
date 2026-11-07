@@ -1,0 +1,20 @@
+name: hermes-brief
+version: "0.1.0"
+manifest_version: 2
+api_version: 1
+description: >-
+  Save pages, X posts and YouTube videos from Chrome and Hermes reads each one and writes you a short brief:
+  what it is, the key points, why it matters, a next step, and timestamps for videos. Save with the extension's
+  button, a right-click on any link, or by bookmarking into a Chrome folder named "Hermes". Briefs land in folders
+  on a Desktop Briefs page, and any chat can search them (brief_search). The extension's side panel also lets you
+  ask Hermes about the page you're on.
+author: Bikash Joshi
+license: MIT
+homepage: https://github.com/BkashJEE/hermes-brief
+tags: [browser, chrome-extension, bookmarks, read-later, summaries, youtube]
+requires_hermes: ">=0.23.0"
+capabilities: []
+provides_tools:
+  - brief_save
+  - brief_search
+  - brief_get

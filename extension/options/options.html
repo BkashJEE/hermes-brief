@@ -1,0 +1,27 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Hermes Brief: connect</title><link rel="stylesheet" href="../style.css">
+<style>body{max-width:620px;margin:32px auto;padding:0 16px}label{display:block;margin:12px 0 4px;font-weight:600}</style></head>
+<body>
+<h1>Connect Hermes Brief to your Hermes</h1>
+<p class="muted">The extension talks only to your own Hermes Agent on this computer. Nothing goes anywhere else.</p>
+
+<label for="base">Hermes API server</label>
+<input id="base" placeholder="http://127.0.0.1:8642">
+<p class="muted small">Hermes's API server address. The default is http://127.0.0.1:8642.</p>
+
+<label for="profile">Profile (optional)</label>
+<input id="profile" placeholder="e.g. ceo">
+<p class="muted small">If you run several profiles on one gateway, the one Hermes Brief is enabled in. Leave empty for the default profile.</p>
+
+<label for="key">API key</label>
+<input id="key" type="password" autocomplete="off" placeholder="paste API_SERVER_KEY">
+<p class="muted small">The <code>API_SERVER_KEY</code> from your Hermes <code>.env</code>. Stored only in this browser.</p>
+
+<label for="folder">Watched bookmarks folder</label>
+<input id="folder" placeholder="Hermes">
+<p class="muted small">Bookmark anything into this Chrome folder (or a subfolder) and it is saved. Subfolder names become Brief folders.</p>
+
+<label><input id="notify" type="checkbox" style="width:auto"> Show a notification when a brief is ready</label>
+
+<div class="row" style="margin-top:16px"><button id="save">Save and test</button><span id="out" class="small"></span></div>
+<script type="module" src="options.js"></script>
+</body></html>

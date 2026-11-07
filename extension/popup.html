@@ -1,0 +1,15 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="style.css">
+<style>body{width:360px;padding:12px}.item{padding:8px 0;border-top:1px solid var(--line)}.item:first-child{border-top:0}.item a{color:var(--ink);text-decoration:none;font-weight:600}</style></head>
+<body>
+<div class="row"><img src="icons/32.png" width="20" height="20" alt=""><h1 class="grow" style="font-size:15px;margin:0">Hermes Brief</h1><a href="#" id="opts" class="small">Settings</a></div>
+<div class="card" style="margin-top:10px">
+  <div id="title" class="small muted" style="margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+  <div class="row"><input id="folder" list="folders" placeholder="Folder (Inbox)" class="grow"><datalist id="folders"></datalist></div>
+  <textarea id="note" placeholder="Note: why you're saving it (optional)" style="margin-top:6px;min-height:40px"></textarea>
+  <div class="row" style="margin-top:8px"><button id="save" class="grow">Save &amp; brief</button><button id="ask" class="ghost">Ask about it</button></div>
+  <div id="out" class="small" style="margin-top:6px"></div>
+</div>
+<h2>Recent</h2>
+<div id="recent" class="small muted">Loading…</div>
+<script type="module" src="popup.js"></script>
+</body></html>
