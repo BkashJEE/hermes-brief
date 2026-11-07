@@ -20,6 +20,8 @@ one ctx.llm call. It polls the database, so items saved by a CLI tool call in an
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import contextvars
 import json
 import logging
 import time
@@ -50,11 +52,20 @@ def plugin_version() -> str:
 
 
 class Worker:
-    def __init__(self, store: Store, llm_getter: Callable[[], Any]):
+    def __init__(self, store: Store, llm_getter: Callable[[], Any], scope: Optional[Callable[[], Any]] = None):
         self.store = store
         self.llm_getter = llm_getter
         self.wake = asyncio.Event()
         self.task: Optional[asyncio.Task] = None
+        # On a multiplexed gateway a model call needs a profile's runtime scope (credentials and config are
+        # per profile). The API server enters it around every request; the worker runs between requests, so it
+        # copies the context of the latest request (remember_scope) or, before any request, opens the server's
+        # default-profile scope itself.
+        self.request_context: Optional[contextvars.Context] = None
+        self.scope = scope
+
+    def remember_scope(self) -> None:
+        self.request_context = contextvars.copy_context()
 
     def start(self) -> None:
         if not self.task:
@@ -76,7 +87,7 @@ class Worker:
         while True:
             try:
                 for item in self.store.pending(5):
-                    await self.brief_one(item)
+                    await self.brief_scoped(item)
             except asyncio.CancelledError:
                 raise
             except Exception:
@@ -86,6 +97,19 @@ class Worker:
                 await asyncio.wait_for(self.wake.wait(), timeout=POLL_SECONDS)
             except asyncio.TimeoutError:
                 pass
+
+    async def brief_scoped(self, item: dict) -> None:
+        if self.request_context is not None:
+            await asyncio.get_running_loop().create_task(self.brief_one(item), context=self.request_context.copy())
+            return
+        cm = contextlib.nullcontext()
+        if self.scope is not None:
+            try:
+                cm = self.scope() or contextlib.nullcontext()
+            except Exception:
+                cm = contextlib.nullcontext()
+        with cm:
+            await self.brief_one(item)
 
     async def brief_one(self, item: dict) -> None:
         self.store.set_status(item["id"], "briefing")
@@ -130,6 +154,7 @@ def wire_routes(router: Any, adapter: Any, store: Store, worker: Worker, profile
             denied = _authorize(adapter, request)
             if denied is not None:
                 return denied
+            worker.remember_scope()
             try:
                 out = await fn(request)
             except web.HTTPException:

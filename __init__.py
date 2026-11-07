@@ -64,7 +64,8 @@ def register(ctx) -> None:
         if router is None:
             return
         store = _open_store()
-        worker = service.Worker(store, llm_getter)
+        scope_fn = getattr(adapter, "_profile_scope", None)
+        worker = service.Worker(store, llm_getter, scope=(lambda: scope_fn(None)) if callable(scope_fn) else None)
         service.wire_routes(router, adapter, store, worker, profile)
 
         async def start(_app):
