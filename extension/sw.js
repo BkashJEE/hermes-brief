@@ -39,7 +39,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
 export async function saveTab(tab, { source = 'button', folder = '', note = '' } = {}) {
   if (!/^https?:/.test(tab?.url || '')) throw new Error('Only web pages can be saved.')
   let page = {}
-  try { page = await readTab(tab.id) } catch (e) { page = { meta: { read_error: String(e).slice(0, 200) } } }
+  // Without access to the site (e.g. a bookmark of a page you never clicked the extension on), Hermes reads the link itself.
+  try { page = await readTab(tab.id) } catch (e) { page = { meta: { read_by: 'hermes', read_error: e.message === 'NEEDS_ACCESS' ? '' : String(e).slice(0, 200) } } }
   return save({ url: tab.url, title: page.title || tab.title, kind: page.kind, content: page.content, selection: page.selection,
                 meta: page.meta, folder, note, source })
 }
@@ -119,3 +120,6 @@ chrome.bookmarks.onMoved.addListener(async (id, move) => {
   if (folder === null) return
   saveUrl(node.url, { title: node.title, folder, source: 'bookmark' }).catch(() => {})
 })
+
+// For tests and the DevTools console: hermesBrief.saveTab(tab)
+globalThis.hermesBrief = { saveTab, readTab }

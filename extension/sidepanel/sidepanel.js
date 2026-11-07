@@ -1,4 +1,4 @@
-import { api, apiRoot, esc, readTab, settings } from '../lib.js'
+import { api, apiRoot, esc, readTab, requestSite, settings } from '../lib.js'
 const $ = id => document.getElementById(id)
 let tab = null, page = null, busy = false
 
@@ -34,13 +34,24 @@ function add(cls, text) {
   $('log').appendChild(d); $('log').scrollTop = 1e9; return d
 }
 
-async function ask(question) {
-  if (busy || !question.trim()) return
+function ask(question) {
+  if (busy || !question.trim() || !tab) return
+  // Ask for this site while we still have the click; Chrome shows its own prompt the first time.
+  const granted = page ? Promise.resolve(true) : requestSite(tab.url)
+  return granted.then(ok => askNow(question, ok))
+}
+
+async function askNow(question, granted) {
   busy = true; $('send').disabled = true
   add('me', question)
   const out = add('her', '…')
   try {
-    if (!page) page = await readTab(tab.id)
+    if (!page) {
+      try { page = await readTab(tab.id) } catch (e) {
+        if (e.message !== 'NEEDS_ACCESS') throw e
+        throw new Error(granted ? 'Chrome would not let Hermes read this page (some pages, like the Web Store, are off limits).' : 'Allow Hermes Brief to read this site to ask about it.')
+      }
+    }
     const s = await settings()
     const context = `The user is looking at this web page in Chrome and asks about it.\nURL: ${tab.url}\nTitle: ${page.title || tab.title}\n` +
       (page.selection ? `They highlighted: ${page.selection}\n` : '') + `\nPage content:\n${(page.content || '').slice(0, 30000)}`

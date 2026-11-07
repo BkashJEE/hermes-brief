@@ -29,12 +29,22 @@ export async function api(path, { method = 'GET', body } = {}) {
 
 // Read the page in the tab: page text, an X post, or a YouTube video's captions. Runs only when the user acts.
 export async function readTab(tabId) {
-  const [{ result } = {}] = await chrome.scripting.executeScript({ target: { tabId }, world: 'MAIN', func: pageReader })
-  return result || {}
+  try {
+    const [{ result } = {}] = await chrome.scripting.executeScript({ target: { tabId }, world: 'MAIN', func: pageReader })
+    return result || {}
+  } catch (e) {
+    if (/permission|Cannot access/i.test(String(e))) throw new Error('NEEDS_ACCESS')
+    throw e
+  }
+}
+
+// Ask Chrome for access to this one site. Call it first thing in a click handler (it needs the click).
+export function requestSite(url) {
+  try { return chrome.permissions.request({ origins: [new URL(url).origin + '/*'] }) } catch { return Promise.resolve(false) }
 }
 
 // Injected into the page (MAIN world, so YouTube's player data is visible). Must be self-contained.
-async function pageReader() {
+export async function pageReader() {
   const url = location.href
   const selection = String(getSelection() || '').trim().slice(0, 4000)
   const host = location.hostname.replace(/^www\./, '')
@@ -55,8 +65,11 @@ async function pageReader() {
       const tracks = pr.captions?.playerCaptionsTracklistRenderer?.captionTracks || []
       const track = tracks.find(t => t.languageCode === 'en' && t.kind !== 'asr') || tracks.find(t => (t.languageCode || '').startsWith('en')) || tracks[0]
       let transcript = ''
+      // YouTube often refuses this fetch now (it wants a token only its player has); then Hermes fetches the
+      // transcript itself with yt-dlp, because meta.transcript says 'none'.
+      let j = {}
       if (track?.baseUrl) {
-        const j = await (await fetch(track.baseUrl + '&fmt=json3')).json()
+        try { j = JSON.parse((await (await fetch(track.baseUrl + '&fmt=json3')).text()) || '{}') } catch { j = {} }
         let last = -99
         for (const ev of j.events || []) {
           const t = (ev.tStartMs || 0) / 1000
