@@ -24,6 +24,22 @@ this week?"), and a daily digest tells you what you saved yesterday.
 - **One-click connect:** no API keys in the browser. The Briefs page shows a 6-digit code; type it into the extension.
 - **The popup** shows the brief of the page you're on if you saved it, plus your latest briefs.
 - A notification when each brief is ready.
+- **What X says:** under each brief, what people on X are saying about that link: a one-line read, the sharpest
+  takes with the handle and a link to each post, the pushback, and who notable weighed in. Hermes asks Grok through
+  its own `x_search` tool, so you see the conversation without opening X.
+
+## What X says
+
+Hermes Brief runs one `x_search` call per saved link after the brief is written (or when you click
+**𝕏 What X says** on a card). It needs Grok access in Hermes: `hermes auth add xai-oauth` (Grok sign-in) or an xAI
+API key. Without it the card says so and nothing else changes.
+
+- `what_x_says: false` in the plugin's settings turns it off.
+- `x_search_profile: ceo` points it at another profile's Grok sign-in. On a multi-profile gateway the worker runs in
+  the API server's profile, which may not be the one you signed in to Grok with. The Briefs status
+  (`/status` → `x_search`) tells you whether it can run and from which profile.
+- Each lookup is one x_search call on your xAI account (about one Grok search). Grok's results are shown as they came
+  back, with links to the posts it cited; when it cites nothing, the card marks the read as rough.
 
 Want to chat with Hermes about the page you're on? That's what the excellent
 [Hermes Browser Extension](https://github.com/abundantbeing/hermes-browser-extension) does; Hermes Brief is about

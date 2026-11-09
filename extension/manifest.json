@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Hermes Brief",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Save pages, X posts and videos to your own Hermes Agent. Hermes reads each one and writes you a short brief.",
   "minimum_chrome_version": "116",
   "permissions": [

@@ -8,6 +8,7 @@ from __future__ import annotations
 import importlib.util
 import sqlite3
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -18,18 +19,32 @@ _HERE = Path(__file__).resolve().parent.parent
 _store = None
 
 
+_lock = threading.RLock()
+
+
 def _load(name: str):
+    # The page asks for /items and /folders at the same time: load each module once, fully, under a lock, and only
+    # publish it after it ran (a half-executed module in sys.modules has no Store yet).
     key = f"hermes_brief_dash_{name}"
-    if key in sys.modules:
-        return sys.modules[key]
-    spec = importlib.util.spec_from_file_location(key, _HERE / f"{name}.py")
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[key] = mod
-    spec.loader.exec_module(mod)
-    return mod
+    with _lock:
+        if key in sys.modules:
+            return sys.modules[key]
+        spec = importlib.util.spec_from_file_location(key, _HERE / f"{name}.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        sys.modules[key] = mod
+        return mod
 
 
 def store():
+    global _store
+    with _lock:
+        if _store is not None:
+            return _store
+        return _open_store()
+
+
+def _open_store():
     global _store
     if _store is None:
         Store = _load("store").Store

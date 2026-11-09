@@ -1,5 +1,5 @@
 name: hermes-brief
-version: "0.2.0"
+version: "0.3.0"
 manifest_version: 2
 api_version: 1
 description: >-
@@ -8,6 +8,8 @@ description: >-
   button, a right-click on any link, or by bookmarking into a Chrome folder named "Hermes". Briefs land in folders
   on a Desktop Briefs page, any chat can search them (brief_search), and brief_digest gives a daily "what you saved".
   Connect the extension with a 6-digit code from the Briefs page; no API key in the browser.
+  Optional "What X says": one Grok x_search call per saved link (the host's own tool, so it uses the Grok sign-in of
+  the API server's profile, or of the profile named in x_search_profile); off with what_x_says: false.
 author: Bikash Joshi
 license: MIT
 homepage: https://github.com/BkashJEE/hermes-brief
