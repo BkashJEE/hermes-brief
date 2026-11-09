@@ -55,6 +55,9 @@ const CSS = `
 .hb-code{font:700 34px/1 ui-monospace,monospace;letter-spacing:.35em;margin:10px 0 6px}
 .hb-pair ol{margin:8px 0 0;padding-left:18px;line-height:1.6}
 .hb-dev{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 0;border-top:1px solid var(--ui-border,#2a2f3a);font-size:12px}
+.hb-x{margin-top:10px;border-left:3px solid var(--ui-text,#e8ecf4);padding:6px 0 6px 12px}
+.hb-x h5{margin:0 0 4px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ui-text-tertiary,#8a93a6)}
+.hb-x ul{margin:6px 0}.hb-x a{color:inherit}.hb-x .muted{color:var(--ui-text-tertiary,#8a93a6);font-size:12px}
 .hb-digest{border:1px dashed var(--ui-border,#2a2f3a);border-radius:12px;padding:12px 16px}
 .hb-digest h4{margin:0 0 6px;font-size:13px}.hb-digest li{margin:2px 0}
 `
@@ -69,12 +72,31 @@ function useLibrary() {
       .catch(e => alive && setData(d => ({ ...d, loaded: true, error: String(e?.message || e) })))
     return () => { alive = false }
   }, [tick])
-  const pending = data.items.some(i => i.status === 'new' || i.status === 'briefing')
+  const pending = data.items.some(i => i.status === 'new' || i.status === 'briefing' || i.x_status === 'new')
   useEffect(() => {
     const t = setTimeout(() => setTick(x => x + 1), pending ? 4000 : 30000)
     return () => clearTimeout(t)
   }, [tick, pending])
   return [data, () => setTick(x => x + 1)]
+}
+
+// "What X says": the conversation on X around this link, from Grok's x_search (run by the gateway worker).
+function XSays({ item, ask }) {
+  const st = item.x_status, x = item.x_says
+  if (item.status !== 'done') return null
+  if (!st) return h('div', { className: 'hb-x' }, h('button', { className: 'hb-btn', onClick: ask }, '𝕏  What X says'))
+  if (st === 'new') return h('div', { className: 'hb-x' }, h('div', { className: 'muted' }, '𝕏  Asking Grok what X says…'))
+  if (st === 'unavailable' || st === 'error') return h('div', { className: 'hb-x' },
+    h('div', { className: 'muted' }, st === 'unavailable' ? 'Connect Grok to see what X says: run  hermes auth add xai-oauth' : `Grok couldn't search X: ${x?.error || ''}`),
+    h('button', { className: 'hb-btn', style: { marginTop: 6 }, onClick: ask }, 'Try again'))
+  return h('div', { className: 'hb-x' },
+    h('h5', null, '𝕏  What X says'),
+    h('div', null, x?.summary || ''),
+    x?.takes?.length ? h('ul', null, ...x.takes.map((t, i) => h('li', { key: i },
+      t.url ? h('a', { href: t.url, onClick: e => { e.preventDefault(); open(t.url) } }, `@${t.handle}`) : h('b', null, `@${t.handle}`), `: ${t.gist}`))) : null,
+    x?.pushback ? h('div', null, h('b', null, 'Pushback: '), x.pushback) : null,
+    x?.notable?.length ? h('div', { className: 'muted' }, `Notable: ${x.notable.map(n => '@' + n).join(', ')}`) : null,
+    x?.degraded ? h('div', { className: 'muted' }, 'Grok gave no post links for this, so treat it as a rough read.') : null)
 }
 
 function Card({ item, folders, reload }) {
@@ -100,6 +122,7 @@ function Card({ item, folders, reload }) {
     b?.key_points?.length ? h('ul', null, ...b.key_points.map((p, i) => h('li', { key: i }, p))) : null,
     b?.why_it_matters ? h('div', { className: 'hb-why' }, h('b', null, 'Why it matters: '), b.why_it_matters) : null,
     b?.next_step ? h('div', { className: 'hb-next' }, h('b', null, 'Next step: '), b.next_step) : null,
+    jsx(XSays, { item, ask: () => act(`/items/${item.id}/xsays`, { method: 'POST' }) }),
     b?.timestamps?.length ? h('div', { className: 'hb-ts' }, ...b.timestamps.map((t, i) => h('button', { key: i, className: 'hb-btn', onClick: () => jump(t.t) }, `${t.t} ${t.note}`))) : null,
     h('div', { className: 'hb-acts' },
       h('button', { className: 'hb-btn', onClick: () => open(item.url) }, 'Open'),

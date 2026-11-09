@@ -61,6 +61,14 @@ def item(item_id: str, text: bool = False):
     return got
 
 
+@router.post("/items/{item_id}/xsays")
+def ask_x(item_id: str):
+    if not store().get(item_id):
+        raise HTTPException(404, "no such item")
+    store().set_x(item_id, "new")
+    return store().get(item_id)
+
+
 @router.get("/folders")
 def folders():
     return {"folders": store().folders()}

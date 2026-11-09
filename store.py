@@ -94,6 +94,10 @@ class Store:
         self.lock = threading.Lock()
         with self.lock:
             self.conn.executescript(SCHEMA)
+            cols = {r[1] for r in self.conn.execute("PRAGMA table_info(items)")}
+            if "x_says" not in cols:      # added in 0.3.0
+                self.conn.execute("ALTER TABLE items ADD COLUMN x_says TEXT")
+                self.conn.execute("ALTER TABLE items ADD COLUMN x_status TEXT NOT NULL DEFAULT ''")
             self.conn.commit()
 
     # ── writes ─────────────────────────────────────────────────────────────
@@ -147,6 +151,19 @@ class Store:
                               " meta = json_set(meta, '$.model', ?) WHERE id = ?",
                               (json.dumps(brief), time.time(), model, item_id))
             self.conn.commit()
+
+    def set_x(self, item_id: str, status: str, x_says: Optional[dict] = None) -> None:
+        """status: new (wanted) | done | none (nobody on X talks about it) | unavailable (no Grok access) | error"""
+        with self.lock:
+            if x_says is None:
+                self.conn.execute("UPDATE items SET x_status = ? WHERE id = ?", (status, item_id))
+            else:
+                self.conn.execute("UPDATE items SET x_status = ?, x_says = ? WHERE id = ?", (status, json.dumps(x_says), item_id))
+            self.conn.commit()
+
+    def x_pending(self, limit: int = 5) -> list[dict]:
+        rows = self.conn.execute("SELECT * FROM items WHERE x_status = 'new' AND status = 'done' ORDER BY saved_at LIMIT ?", (limit,))
+        return [_row(r, False) for r in rows]
 
     def move(self, item_id: str, folder: str) -> Optional[dict]:
         folder = folder.strip()[:60] or DEFAULT_FOLDER
@@ -248,7 +265,8 @@ def _sha(s: str) -> str:
 
 
 def _row(row: sqlite3.Row, with_content: bool) -> dict:
-    out = {k: row[k] for k in row.keys() if k not in ("content", "meta", "brief")}
+    out = {k: row[k] for k in row.keys() if k not in ("content", "meta", "brief", "x_says")}
+    out["x_says"] = json.loads(row["x_says"]) if "x_says" in row.keys() and row["x_says"] else None
     out["meta"] = json.loads(row["meta"] or "{}")
     out["brief"] = json.loads(row["brief"]) if row["brief"] else None
     out["has_content"] = bool(row["content"])

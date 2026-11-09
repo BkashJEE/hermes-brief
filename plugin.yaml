@@ -14,6 +14,15 @@ homepage: https://github.com/BkashJEE/hermes-brief
 tags: [browser, chrome-extension, bookmarks, read-later, summaries, youtube]
 requires_hermes: ">=0.23.0"
 capabilities: []
+config_schema:
+  what_x_says:
+    type: bool
+    default: true
+    description: After each brief, ask Grok (Hermes's x_search tool) what people on X are saying about the link. Needs Grok access in Hermes; each lookup is one x_search call.
+  x_search_profile:
+    type: str
+    default: ""
+    description: Profile whose Grok sign-in x_search should use (for example ceo). Leave empty to use the profile that runs the API server.
 provides_tools:
   - brief_save
   - brief_search

@@ -41,6 +41,23 @@ async def main():
     fol = await (await c.get(f"{service.BASE}/folders", headers=H)).json(); assert fol["folders"][0]["name"] == "Done"
     bad = await c.post(f"{service.BASE}/items", headers=H, json={"url": "javascript:alert(1)"}); assert bad.status == 400
     d = await (await c.delete(f"{service.BASE}/items/{item['id']}", headers=H)).json(); assert d["deleted"]
+    # What X says: unavailable without Grok, done with a real-shaped answer
+    from hermes_brief import xsays
+    st, x = xsays.run(lambda n, a: json.dumps({"success": False, "error": "No xAI credentials available. Run `hermes auth add xai-oauth`"}), "https://e.com", "E")
+    assert st == "unavailable" and "xai-oauth" in x["error"], (st, x)
+    answer = "SUMMARY: Builders like it.\nTAKES:\n- @Teknium: push plugins to the limit\n- @witcheer: shipping a game kit\nPUSHBACK: 7 days is short.\nNOTABLE: @NousResearch, @Teknium"
+    st, x = xsays.run(lambda n, a: json.dumps({"success": True, "answer": answer, "citations": [], "inline_citations": [{"url": "https://x.com/Teknium/status/1"}, {"url": "https://x.com/witcheer/status/2"}]}), "https://e.com", "E")
+    assert st == "done" and x["takes"][0]["url"] == "https://x.com/Teknium/status/1" and x["notable"] == ["NousResearch", "Teknium"] and not x["degraded"], x
+    st, x = xsays.run(lambda n, a: json.dumps({"success": True, "answer": "NONE"}), "https://e.com", "E")
+    assert st == "none"
+    # the worker marks items for X lookup only when enabled, and the route can ask for one
+    item2 = await (await c.post(f"{service.BASE}/items", headers=H, json={"url": "https://example.org/x", "content": "words " * 60})).json()
+    for _ in range(40):
+        await asyncio.sleep(0.1)
+        got2 = await (await c.get(f"{service.BASE}/items/{item2['id']}", headers=H)).json()
+        if got2["status"] == "done": break
+    assert got2["x_status"] == "", got2["x_status"]            # x disabled in this test worker
+    r = await c.post(f"{service.BASE}/items/{item2['id']}/xsays", headers=H); assert (await r.json())["x_status"] == "new"
     await worker.stop(); await c.close(); print("routes: all ok")
 
 asyncio.run(main())

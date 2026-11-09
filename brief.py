@@ -90,6 +90,13 @@ def brief_markdown(item: dict) -> str:
         lines += ["", f"Next step: {b['next_step']}"]
     if b.get("confidence") and b["confidence"] != "full":
         lines += ["", f"(Read: {b['confidence'].replace('_', ' ')})"]
+    try:
+        from .xsays import markdown as x_md
+    except ImportError:
+        from xsays import markdown as x_md
+    xs = x_md(item.get("x_says"), item.get("x_status") or "")
+    if xs:
+        lines += ["", xs]
     return "\n".join(lines)
 
 

@@ -44,6 +44,13 @@ def _open_store() -> Store:
     return _store
 
 
+def _config(ctx, key, default):
+    try:
+        return ctx.get_config(key, default=default)
+    except Exception:
+        return default
+
+
 def register(ctx) -> None:
     llm_getter = lambda: getattr(ctx, "llm", None)
     tools = Tools(_open_store, llm_getter)
@@ -67,7 +74,12 @@ def register(ctx) -> None:
             return
         store = _open_store()
         scope_fn = getattr(adapter, "_profile_scope", None)
-        worker = service.Worker(store, llm_getter, scope=(lambda: scope_fn(None)) if callable(scope_fn) else None)
+        dispatch = getattr(ctx, "dispatch_tool", None)
+        worker = service.Worker(store, llm_getter, scope=(lambda: scope_fn(None)) if callable(scope_fn) else None,
+                                dispatch=(lambda name, args: dispatch(name, args)) if callable(dispatch) else None,
+                                x_enabled=lambda: bool(_config(ctx, "what_x_says", True)),
+                                x_scope=(lambda: scope_fn(str(_config(ctx, "x_search_profile", "") or "").strip() or None)) if callable(scope_fn) else None,
+                                x_profile=lambda: str(_config(ctx, "x_search_profile", "") or "").strip())
         service.wire_routes(router, adapter, store, worker, profile)
 
         async def start(_app):
