@@ -9,7 +9,17 @@ const ctx = await chromium.launchPersistentContext(dir, { executablePath: proces
 let [sw] = ctx.serviceWorkers(); if (!sw) sw = await ctx.waitForEvent('serviceworker')
 const extId = sw.url().split('/')[2]
 const ok = (c, m) => { if (!c) { console.error('FAIL', m); process.exit(1) } console.log('ok', m) }
-await sw.evaluate(async (base) => chrome.storage.local.set({ base, key: 'test-key', notify: false }), MOCK)
+// 0. pair through the options page with a code (no API key in the browser)
+await sw.evaluate(async (base) => chrome.storage.local.set({ base, notify: false }), MOCK)
+const { code } = await (await fetch(`${MOCK}/test/pair-start`, { method: 'POST' })).json()
+const opt0 = await ctx.newPage(); await opt0.goto(`chrome-extension://${extId}/options/options.html`)
+await opt0.fill('#code', '000000'); await opt0.click('#connect'); await opt0.waitForTimeout(500)
+const wrong = await opt0.locator('#out').innerText()
+await opt0.fill('#code', code); await opt0.click('#connect'); await opt0.waitForTimeout(800)
+const paired = await opt0.locator('#out').innerText()
+ok(/wrong or expired/.test(wrong) && paired.startsWith('Connected'), 'pairs with the 6-digit code (a wrong code is refused)')
+const token = await sw.evaluate(async () => (await chrome.storage.local.get('key')).key)
+ok(token.startsWith('hb_'), 'the extension holds its own device token, not the API key')
 
 // 1. the folder exists
 const folders = await sw.evaluate(async () => (await chrome.bookmarks.search({ title: 'Hermes' })).filter(n => !n.url).length)
@@ -22,7 +32,7 @@ const item = await sw.evaluate(async (base) => {
   return hermesBrief.saveTab(tab, { folder: 'Agents', note: 'try it' })
 }, MOCK)
 ok(item.folder === 'Agents' && item.has_content && item.meta.note === 'try it' && item.meta.read_by === 'browser', 'saved the page with its text read from the tab')
-const H = { Authorization: 'Bearer test-key' }
+const H = { Authorization: `Bearer ${token}` }
 let got
 for (let i = 0; i < 30; i++) { got = await (await fetch(`${MOCK}/api/plugins/hermes-brief/items/${item.id}`, { headers: H })).json(); if (got.status === 'done') break; await new Promise(r => setTimeout(r, 300)) }
 ok(got.brief?.headline === 'Brief of: Mock article about agents' && got.brief.key_points[0] === 'read by the browser', 'brief written from the browser-read text (the logged-in-only line was included)')
@@ -48,6 +58,10 @@ ok(!list2.items.some(i => i.url.startsWith('https://example.org')), 'bookmarks o
 const pop = await ctx.newPage(); await pop.goto(`chrome-extension://${extId}/popup.html`); await pop.waitForTimeout(1200)
 const recent = await pop.locator('#recent').innerText()
 ok(recent.includes('Brief of: Mock article'), 'popup lists recent briefs')
-const opt = await ctx.newPage(); await opt.goto(`chrome-extension://${extId}/options/options.html`); await opt.click('#save'); await opt.waitForTimeout(800)
-ok((await opt.locator('#out').innerText()).startsWith('Connected'), 'options page "Save and test" connects')
+const opt = await ctx.newPage(); await opt.goto(`chrome-extension://${extId}/options/options.html`); await opt.waitForTimeout(800)
+ok((await opt.locator('#out').innerText()).startsWith('Connected'), 'options page shows the live connection')
+// the popup on a saved page shows that page's brief
+const pop2 = await ctx.newPage(); await page.bringToFront()
+const brief = await sw.evaluate(async (base) => { const r = await fetch(base + '/api/plugins/hermes-brief/lookup?url=' + encodeURIComponent(base + '/test-article'), { headers: { Authorization: 'Bearer ' + (await chrome.storage.local.get('key')).key } }); return (await r.json()).item?.brief?.headline }, MOCK)
+ok(brief === 'Brief of: Mock article about agents', 'lookup finds the brief for the page you are on')
 await ctx.close(); console.log('extension e2e: all ok')

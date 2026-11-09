@@ -4,8 +4,8 @@
 
 You bookmark things to read later and never do. Hermes Brief reads them the moment you save them and keeps a short
 brief of each one: what it is, the key points, why it matters, one next step, and timestamps for videos. Briefs land
-in folders on a **Briefs** page in Hermes Desktop, and any Hermes chat can find them ("what did I save about Ollama
-this week?"). The extension's side panel also lets you ask Hermes about the page you're on.
+in folders on a **Briefs** page in Hermes Desktop, any Hermes chat can find them ("what did I save about Ollama
+this week?"), and a daily digest tells you what you saved yesterday.
 
 ## What you get
 
@@ -18,10 +18,16 @@ this week?"). The extension's side panel also lets you ask Hermes about the page
   how much Hermes could read (full, partial or title only). The brief only uses what was read; it never invents.
 - **Briefs page in Desktop:** folders, search, paste a link to save it, open, move, brief again, delete. Video
   timestamps open the video at that moment.
-- **In any chat:** `brief_save` (save a link and brief it now), `brief_search` (what you saved), `brief_get`.
-- **Ask about this page:** the side panel sends the page to your Hermes and streams the answer (a real Hermes turn,
-  with its tools). Quick asks: *Brief this*, *What can I do with it?*, *Explain simply*.
+- **In any chat:** `brief_save` (save a link and brief it now), `brief_search` (what you saved), `brief_get`, and
+  `brief_digest` (what you saved in the last 24 hours, by folder). Ask Hermes to *"run brief_digest every day at 8am
+  and send it to me"* and you get it on Telegram or wherever your Hermes talks to you.
+- **One-click connect:** no API keys in the browser. The Briefs page shows a 6-digit code; type it into the extension.
+- **The popup** shows the brief of the page you're on if you saved it, plus your latest briefs.
 - A notification when each brief is ready.
+
+Want to chat with Hermes about the page you're on? That's what the excellent
+[Hermes Browser Extension](https://github.com/abundantbeing/hermes-browser-extension) does; Hermes Brief is about
+saving and remembering, and the two work side by side.
 
 ## Install
 
@@ -34,8 +40,8 @@ this week?"). The extension's side panel also lets you ask Hermes about the page
    Capabilities → Plugins → Hermes Brief.
 2. **The Chrome extension** (Chrome, Edge, Brave, Arc, Chromium): open `chrome://extensions`, switch on
    *Developer mode*, click *Load unpacked* and pick the `extension/` folder of this repo.
-3. **Connect:** the extension opens its options page. Paste the `API_SERVER_KEY` from your Hermes `.env` (the API
-   server must be on: `API_SERVER_ENABLED=true`), then click *Save and test*.
+3. **Connect:** in Hermes Desktop open **Briefs** → **Connect Chrome**. Type the 6-digit code into the page the
+   extension opened and click *Connect*. (The Hermes API server must be on: `API_SERVER_ENABLED=true`.)
 
 On a multi-profile gateway (`gateway.multiplex_profiles`), enable the plugin in the **default** profile too: the API
 server's routes belong to it. The library is shared by all your profiles.
@@ -43,7 +49,10 @@ server's routes belong to it. The library is shared by all your profiles.
 ## Privacy and limits
 
 - The extension talks **only to your own Hermes on 127.0.0.1**. It never reads a page on its own: only the page you
-  save, or the one you open the side panel on. To ask about a page, Chrome asks you once per site.
+  save (button, right-click, shortcut, or a bookmark of the tab you're on).
+- Pairing gives the browser its own token (stored only as a hash in Hermes; disconnect it on the Briefs page). Codes
+  last 5 minutes, work once, and five wrong tries cancel every open code. `/pair` is the only route that answers
+  without auth, and only to a valid code.
 - Briefs use your Hermes model through `ctx.llm` (one call per saved link), so each costs about what a short chat does.
 - Links Hermes reads itself are fetched from your machine; logged-in pages read that way only show what's public.
 - X's public embed cuts long quoted posts short; save from the tab to get the full post.
@@ -53,7 +62,7 @@ server's routes belong to it. The library is shared by all your profiles.
 
 | Part | File |
 |---|---|
-| API-server routes for the extension (behind the server's own auth) and the brief worker | `service.py` |
+| API-server routes for the extension (API-server auth or a paired device token) and the brief worker | `service.py` |
 | Readers: page text, X posts, video transcripts | `readers.py` |
 | The brief: one structured `ctx.llm` call | `brief.py` |
 | Library (SQLite, one row per canonical URL) | `store.py` |

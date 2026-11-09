@@ -1,27 +1,33 @@
 <!doctype html><html><head><meta charset="utf-8"><title>Hermes Brief: connect</title><link rel="stylesheet" href="../style.css">
-<style>body{max-width:620px;margin:32px auto;padding:0 16px}label{display:block;margin:12px 0 4px;font-weight:600}</style></head>
+<style>body{max-width:620px;margin:32px auto;padding:0 16px}label{display:block;margin:12px 0 4px;font-weight:600}
+.code{font:700 28px/1 ui-monospace,monospace;letter-spacing:.3em;text-align:center}.step{margin:18px 0}details{margin-top:24px}summary{cursor:pointer;color:var(--muted)}</style></head>
 <body>
-<h1>Connect Hermes Brief to your Hermes</h1>
-<p class="muted">The extension talks only to your own Hermes Agent on this computer. Nothing goes anywhere else.</p>
+<h1>Connect Hermes Brief</h1>
+<p class="muted">The extension talks only to your own Hermes on this computer. Nothing goes anywhere else.</p>
 
-<label for="base">Hermes API server</label>
-<input id="base" placeholder="http://127.0.0.1:8642">
-<p class="muted small">Hermes's API server address. The default is http://127.0.0.1:8642.</p>
+<div class="step card">
+  <strong>1. Get a code</strong>
+  <p class="muted small" style="margin:6px 0 0">In Hermes Desktop open <b>Briefs</b> and click <b>Connect Chrome</b>. You'll see a 6-digit code (it works for 5 minutes).</p>
+</div>
 
-<label for="profile">Profile (optional)</label>
-<input id="profile" placeholder="e.g. ceo">
-<p class="muted small">If you run several profiles on one gateway, the one Hermes Brief is enabled in. Leave empty for the default profile.</p>
+<div class="step card">
+  <strong>2. Enter it here</strong>
+  <input id="code" class="code" inputmode="numeric" maxlength="7" placeholder="000000" autocomplete="one-time-code" style="margin-top:10px">
+  <div class="row" style="margin-top:10px"><button id="connect">Connect</button><span id="out" class="small"></span></div>
+</div>
 
-<label for="key">API key</label>
-<input id="key" type="password" autocomplete="off" placeholder="paste API_SERVER_KEY">
-<p class="muted small">The <code>API_SERVER_KEY</code> from your Hermes <code>.env</code>. Stored only in this browser.</p>
-
-<label for="folder">Watched bookmarks folder</label>
-<input id="folder" placeholder="Hermes">
-<p class="muted small">Bookmark anything into this Chrome folder (or a subfolder) and it is saved. Subfolder names become Brief folders.</p>
-
-<label><input id="notify" type="checkbox" style="width:auto"> Show a notification when a brief is ready</label>
-
-<div class="row" style="margin-top:16px"><button id="save">Save and test</button><span id="out" class="small"></span></div>
+<details>
+  <summary>Settings</summary>
+  <label for="base">Hermes API server</label>
+  <input id="base" placeholder="http://127.0.0.1:8642">
+  <p class="muted small">Your Hermes API server. The default is http://127.0.0.1:8642 (it must be on: API_SERVER_ENABLED=true).</p>
+  <label for="folder">Watched bookmarks folder</label>
+  <input id="folder" placeholder="Hermes">
+  <p class="muted small">Bookmark anything into this Chrome folder (or a subfolder) and it is saved. Subfolder names become Brief folders.</p>
+  <label><input id="notify" type="checkbox" style="width:auto"> Show a notification when a brief is ready</label>
+  <label for="key">Or use your API key instead of a code</label>
+  <input id="key" type="password" autocomplete="off" placeholder="API_SERVER_KEY from your Hermes .env">
+  <div class="row" style="margin-top:10px"><button id="save" class="ghost">Save settings</button><span id="out2" class="small"></span></div>
+</details>
 <script type="module" src="options.js"></script>
 </body></html>

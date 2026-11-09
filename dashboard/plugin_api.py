@@ -94,3 +94,26 @@ def save(body: dict = Body(...)):
         raise HTTPException(400, "url must be an http(s) link")
     readers = _load("readers")
     return store().save(url=url, folder=str(body.get("folder") or ""), source="desktop", kind=readers.kind_of(url))
+
+
+# ── pairing the Chrome extension (a 6-digit code instead of the API key) ──────────────────────
+@router.post("/pair/start")
+def pair_start():
+    return store().start_pairing()
+
+
+@router.get("/devices")
+def devices():
+    return {"devices": store().devices()}
+
+
+@router.delete("/devices/{device_id}")
+def forget_device(device_id: str):
+    return {"forgotten": store().forget_device(device_id)}
+
+
+@router.get("/digest")
+def digest(hours: float = 24):
+    brief = _load("brief")
+    items = store().search(since=time.time() - hours * 3600, limit=100)
+    return {"hours": hours, "count": len(items), "items": items, "markdown": brief.digest_markdown(items, hours)}

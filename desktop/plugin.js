@@ -51,6 +51,12 @@ const CSS = `
 .hb-ts{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.hb-ts button{font-size:12px}
 .hb-acts{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}.hb-acts .hb-btn{font-size:12px;padding:4px 9px}
 .hb-empty{color:var(--ui-text-tertiary,#8a93a6);padding:40px 6px;line-height:1.6;max-width:560px}
+.hb-pair{border:1px solid var(--ui-accent,#4f8bff);border-radius:12px;padding:16px 18px;margin:14px 18px 0;background:var(--ui-accent-subtle,rgba(79,139,255,.08))}
+.hb-code{font:700 34px/1 ui-monospace,monospace;letter-spacing:.35em;margin:10px 0 6px}
+.hb-pair ol{margin:8px 0 0;padding-left:18px;line-height:1.6}
+.hb-dev{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 0;border-top:1px solid var(--ui-border,#2a2f3a);font-size:12px}
+.hb-digest{border:1px dashed var(--ui-border,#2a2f3a);border-radius:12px;padding:12px 16px}
+.hb-digest h4{margin:0 0 6px;font-size:13px}.hb-digest li{margin:2px 0}
 `
 
 function useLibrary() {
@@ -102,7 +108,51 @@ function Card({ item, folders, reload }) {
       h('button', { className: 'hb-btn', onClick: () => window.confirm('Delete this saved link and its brief?') && act(`/items/${item.id}`, { method: 'DELETE' }) }, 'Delete')))
 }
 
+function PairPanel({ onClose }) {
+  const [code, setCode] = useState(null)
+  const [left, setLeft] = useState(0)
+  const [devices, setDevices] = useState([])
+  const [err, setErr] = useState('')
+  const loadDevices = () => rest('/devices').then(d => setDevices(d.devices || [])).catch(() => {})
+  const newCode = () => rest('/pair/start', { method: 'POST' }).then(r => { setCode(r.code); setLeft(r.expires_in); setErr('') }).catch(e => setErr(String(e?.message || e)))
+  useEffect(() => { newCode(); loadDevices() }, [])
+  useEffect(() => {
+    if (!code) return
+    const t = setInterval(() => { setLeft(x => Math.max(0, x - 1)); loadDevices() }, 1000)
+    return () => clearInterval(t)
+  }, [code])
+  const forget = id => rest(`/devices/${id}`, { method: 'DELETE' }).then(loadDevices)
+  const mmss = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`
+  return h('div', { className: 'hb-pair' },
+    h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+      h('strong', null, 'Connect Chrome'), h('button', { className: 'hb-btn', onClick: onClose }, 'Done')),
+    err ? h('div', null, err) : null,
+    code ? h('div', null,
+      h('div', { className: 'hb-code' }, code.replace(/(\d{3})(\d{3})/, '$1 $2')),
+      h('div', { style: { color: 'var(--ui-text-tertiary,#8a93a6)', fontSize: 12 } },
+        left > 0 ? `Works once, for ${mmss}.` : 'Expired. ', left > 0 ? null : h('button', { className: 'hb-btn', onClick: newCode }, 'New code'))) : null,
+    h('ol', null,
+      h('li', null, 'Install the Hermes Brief extension (chrome://extensions → Developer mode → Load unpacked → the extension folder of this plugin).'),
+      h('li', null, 'It opens its Connect page. Type this code and click Connect.'),
+      h('li', null, 'Save a page with the toolbar button, right-click a link, or bookmark into the "Hermes" folder.')),
+    devices.length ? h('div', { style: { marginTop: 12 } },
+      h('div', { style: { fontSize: 12, color: 'var(--ui-text-tertiary,#8a93a6)', marginBottom: 4 } }, 'Connected browsers'),
+      ...devices.map(d => h('div', { key: d.id, className: 'hb-dev' },
+        h('span', null, `${d.name} · connected ${ago(d.created)}${d.last_seen ? ` · last used ${ago(d.last_seen)}` : ''}`),
+        h('button', { className: 'hb-btn', onClick: () => forget(d.id) }, 'Disconnect')))) : null)
+}
+
+function Digest({ items }) {
+  const day = items.filter(i => Date.now() / 1000 - i.saved_at < 86400)
+  if (!day.length) return null
+  return h('div', { className: 'hb-digest' },
+    h('h4', null, `Last 24 hours: you saved ${day.length}`),
+    h('ul', null, ...day.slice(0, 8).map(i => h('li', { key: i.id }, `${i.brief?.headline || i.title || i.url}`, h('span', { style: { color: 'var(--ui-text-tertiary,#8a93a6)' } }, ` · ${i.folder}`)))),
+    h('div', { style: { fontSize: 12, color: 'var(--ui-text-tertiary,#8a93a6)', marginTop: 6 } }, 'Get this every morning: ask Hermes to "run brief_digest every day at 8am and send it to me".'))
+}
+
 function BriefsPage() {
+  const [pairing, setPairing] = useState(false)
   const [data, reload] = useLibrary()
   const [folder, setFolder] = useState('')
   const [q, setQ] = useState('')
@@ -129,13 +179,16 @@ function BriefsPage() {
         h('h1', null, 'Briefs'),
         h('input', { className: 'hb-in', placeholder: 'Search your saved links…', value: q, onChange: e => setQ(e.target.value) }),
         h('input', { className: 'hb-in', placeholder: 'Paste a link to save and brief', value: link, onChange: e => setLink(e.target.value), onKeyDown: e => e.key === 'Enter' && add() }),
-        h('button', { className: 'hb-btn pri', onClick: add }, 'Save')),
+        h('button', { className: 'hb-btn pri', onClick: add }, 'Save'),
+        h('button', { className: 'hb-btn', onClick: () => setPairing(p => !p) }, 'Connect Chrome')),
+      pairing ? jsx(PairPanel, { onClose: () => setPairing(false) }) : null,
       h('div', { className: 'hb-list' },
+        !folder && !q && data.items.length ? jsx(Digest, { items: data.items }) : null,
         data.error ? h('div', { className: 'hb-empty' }, `Could not load your briefs: ${data.error}`) :
         !data.loaded ? h('div', { className: 'hb-empty' }, 'Loading…') :
         shown.length ? shown.map(i => jsx(Card, { item: i, folders: data.folders, reload }, i.id)) :
         h('div', { className: 'hb-empty' }, data.items.length ? 'Nothing matches.' :
-          'Nothing saved yet. Install the Hermes Brief Chrome extension, then save a page with its button, right-click any link → "Save link to Hermes", or bookmark into the "Hermes" folder. You can also paste a link above.'))))
+          'Nothing saved yet. Click Connect Chrome to pair the Hermes Brief extension, then save a page with its button, right-click any link → "Save link to Hermes", or bookmark into the "Hermes" folder. You can also paste a link above.'))))
 }
 
 export default {

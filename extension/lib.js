@@ -1,27 +1,26 @@
 // Shared by the service worker, popup, side panel and options page.
 
-export const DEFAULTS = { base: 'http://127.0.0.1:8642', profile: '', key: '', folderName: 'Hermes', notify: true }
+export const DEFAULTS = { base: 'http://127.0.0.1:8642', key: '', folderName: 'Hermes', notify: true }
 
 export async function settings() {
   const s = await chrome.storage.local.get(Object.keys(DEFAULTS))
   return { ...DEFAULTS, ...s }
 }
 
-// The plugin's routes live on the profile's API server; a multiplexed gateway serves profile X under /p/X.
+// The plugin's routes live on the API server's root (on a multiplexed gateway, the default profile's).
 export function apiRoot(s) {
-  const base = (s.base || DEFAULTS.base).replace(/\/+$/, '')
-  return s.profile ? `${base}/p/${encodeURIComponent(s.profile)}` : base
+  return (s.base || DEFAULTS.base).replace(/\/+$/, '')
 }
 
 export async function api(path, { method = 'GET', body } = {}) {
   const s = await settings()
-  if (!s.key) throw new Error('Add your Hermes API key in the extension options first.')
+  if (!s.key) throw new Error('Connect the extension to Hermes first: open its options and enter the pairing code.')
   const res = await fetch(`${apiRoot(s)}/api/plugins/hermes-brief${path}`, {
     method,
     headers: { Authorization: `Bearer ${s.key}`, 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined,
   })
-  if (res.status === 401) throw new Error('Hermes refused the key. Check it in the extension options.')
+  if (res.status === 401) throw new Error('Hermes no longer knows this browser. Pair it again in the extension options.')
   if (res.status === 404) throw new Error('Hermes Brief is not running on that Hermes. Enable the plugin and restart the gateway.')
   if (!res.ok) throw new Error(`Hermes answered ${res.status}`)
   return res.json()
@@ -36,11 +35,6 @@ export async function readTab(tabId) {
     if (/permission|Cannot access/i.test(String(e))) throw new Error('NEEDS_ACCESS')
     throw e
   }
-}
-
-// Ask Chrome for access to this one site. Call it first thing in a click handler (it needs the click).
-export function requestSite(url) {
-  try { return chrome.permissions.request({ origins: [new URL(url).origin + '/*'] }) } catch { return Promise.resolve(false) }
 }
 
 // Injected into the page (MAIN world, so YouTube's player data is visible). Must be self-contained.
@@ -98,4 +92,16 @@ export const KIND_LABEL = { page: 'Page', x_post: 'X post', youtube: 'YouTube', 
 
 export function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+}
+
+// Swap the 6-digit code from the Desktop Briefs page for this browser's own token.
+export async function pair(base, code) {
+  const res = await fetch(`${base.replace(/\/+$/, '')}/api/plugins/hermes-brief/pair`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code, name: `${navigator.userAgentData?.brands?.find(b => !/Not|Chromium/.test(b.brand))?.brand || 'Chrome'} on ${navigator.userAgentData?.platform || navigator.platform}` }),
+  })
+  if (res.status === 404) throw new Error('Hermes Brief is not running at that address. Is the plugin enabled and the gateway restarted?')
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(body.error || `Hermes answered ${res.status}`)
+  return body.token
 }

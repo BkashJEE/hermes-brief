@@ -7,7 +7,9 @@ fill the database. The brief is the model's JSON answer.
 
 from __future__ import annotations
 
+import hashlib
 import json
+import secrets
 import sqlite3
 import threading
 import time
@@ -37,7 +39,25 @@ CREATE TABLE IF NOT EXISTS items (
 );
 CREATE INDEX IF NOT EXISTS items_folder ON items(folder, saved_at);
 CREATE INDEX IF NOT EXISTS items_saved ON items(saved_at);
+CREATE TABLE IF NOT EXISTS devices (
+  id TEXT PRIMARY KEY,
+  token_sha256 TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL DEFAULT 'Chrome',
+  created REAL NOT NULL,
+  last_seen REAL
+);
+CREATE TABLE IF NOT EXISTS pair_codes (
+  code_sha256 TEXT PRIMARY KEY,
+  expires REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS pair_state (
+  k TEXT PRIMARY KEY,
+  v INTEGER NOT NULL
+);
 """
+
+PAIR_TTL = 300          # a pairing code works for 5 minutes, once
+PAIR_MAX_TRIES = 5      # five wrong codes cancel every open code
 
 # Query parameters that only track where a click came from.
 _TRACKING = {"utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "utm_id", "fbclid", "gclid",
@@ -141,6 +161,58 @@ class Store:
             self.conn.commit()
         return cur.rowcount > 0
 
+    # ── pairing (the Chrome extension gets its own token; no API key in the browser) ──────────────
+    def start_pairing(self) -> dict:
+        code = f"{secrets.randbelow(1_000_000):06d}"
+        now = time.time()
+        with self.lock:
+            self.conn.execute("DELETE FROM pair_codes WHERE expires < ?", (now,))
+            self.conn.execute("INSERT OR REPLACE INTO pair_codes VALUES (?, ?)", (_sha(code), now + PAIR_TTL))
+            self.conn.execute("INSERT OR REPLACE INTO pair_state VALUES ('tries', 0)")
+            self.conn.commit()
+        return {"code": code, "expires_in": PAIR_TTL}
+
+    def finish_pairing(self, code: str, name: str = "Chrome") -> Optional[str]:
+        """Swap a valid code for a long-lived device token (returned once, stored only as a hash)."""
+        code = "".join(ch for ch in str(code) if ch.isdigit())
+        now = time.time()
+        with self.lock:
+            row = self.conn.execute("SELECT expires FROM pair_codes WHERE code_sha256 = ?", (_sha(code),)).fetchone()
+            if not row or row["expires"] < now:
+                tries = (self.conn.execute("SELECT v FROM pair_state WHERE k = 'tries'").fetchone() or {"v": 0})["v"] + 1
+                if tries >= PAIR_MAX_TRIES:
+                    self.conn.execute("DELETE FROM pair_codes")
+                    tries = 0
+                self.conn.execute("INSERT OR REPLACE INTO pair_state VALUES ('tries', ?)", (tries,))
+                self.conn.commit()
+                return None
+            self.conn.execute("DELETE FROM pair_codes WHERE code_sha256 = ?", (_sha(code),))
+            token = "hb_" + secrets.token_urlsafe(32)
+            self.conn.execute("INSERT INTO devices (id, token_sha256, name, created) VALUES (?, ?, ?, ?)",
+                              (uuid.uuid4().hex[:10], _sha(token), (name or "Chrome")[:60], now))
+            self.conn.commit()
+        return token
+
+    def device_for(self, token: str) -> Optional[str]:
+        if not token or not token.startswith("hb_"):
+            return None
+        with self.lock:
+            row = self.conn.execute("SELECT id FROM devices WHERE token_sha256 = ?", (_sha(token),)).fetchone()
+            if row:
+                self.conn.execute("UPDATE devices SET last_seen = ? WHERE id = ?", (time.time(), row["id"]))
+                self.conn.commit()
+        return row["id"] if row else None
+
+    def devices(self) -> list[dict]:
+        rows = self.conn.execute("SELECT id, name, created, last_seen FROM devices ORDER BY created DESC")
+        return [dict(r) for r in rows]
+
+    def forget_device(self, device_id: str) -> bool:
+        with self.lock:
+            cur = self.conn.execute("DELETE FROM devices WHERE id = ?", (device_id,))
+            self.conn.commit()
+        return cur.rowcount > 0
+
     # ── reads ──────────────────────────────────────────────────────────────
     def get(self, item_id: str, *, with_content: bool = False) -> Optional[dict]:
         row = self.conn.execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
@@ -169,6 +241,10 @@ class Store:
     def folders(self) -> list[dict]:
         rows = self.conn.execute("SELECT folder, count(*) AS n, max(saved_at) AS last FROM items GROUP BY folder ORDER BY last DESC")
         return [{"name": r["folder"], "count": r["n"], "last": r["last"]} for r in rows]
+
+
+def _sha(s: str) -> str:
+    return hashlib.sha256(s.encode()).hexdigest()
 
 
 def _row(row: sqlite3.Row, with_content: bool) -> dict:

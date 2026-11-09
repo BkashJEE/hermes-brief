@@ -8,7 +8,7 @@ import time
 from typing import Any
 
 from . import readers
-from .brief import brief_markdown, build_input, BRIEF_SCHEMA, INSTRUCTIONS
+from .brief import brief_markdown, build_input, digest_markdown, BRIEF_SCHEMA, INSTRUCTIONS
 
 SCHEMA_SAVE = {
     "name": "brief_save",
@@ -58,6 +58,19 @@ SCHEMA_GET = {
 }
 
 
+SCHEMA_DIGEST = {
+    "name": "brief_digest",
+    "description": "A one-glance digest of what the user saved to Hermes Brief recently (default: the last 24 hours), "
+                   "one line per item grouped by folder, with each brief's headline and next step. Use for 'what did I "
+                   "save yesterday', a morning digest, or a scheduled daily summary.",
+    "parameters": {
+        "type": "object",
+        "properties": {"hours": {"type": "number", "description": "How far back to look, in hours (default 24)."}},
+        "additionalProperties": False,
+    },
+}
+
+
 class Tools:
     def __init__(self, store_getter, llm_getter):
         self.store = store_getter
@@ -102,6 +115,11 @@ class Tools:
         return json.dumps({"count": len(items), "items": [
             {"id": i["id"], "folder": i["folder"], "kind": i["kind"], "saved": time.strftime("%Y-%m-%d %H:%M", time.localtime(i["saved_at"])),
              "status": i["status"], "brief_markdown": brief_markdown(i)} for i in items]})
+
+    def digest(self, args: dict | None = None, **_: Any) -> str:
+        hours = float((args or {}).get("hours") or 24)
+        items = self.store().search(since=time.time() - hours * 3600, limit=100)
+        return json.dumps({"count": len(items), "digest_markdown": digest_markdown(items, hours)})
 
     def get(self, args: dict | None = None, **_: Any) -> str:
         a = args or {}

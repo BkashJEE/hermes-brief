@@ -14,7 +14,7 @@ import logging
 
 from . import service
 from .store import Store
-from .tools import SCHEMA_GET, SCHEMA_SAVE, SCHEMA_SEARCH, Tools
+from .tools import SCHEMA_DIGEST, SCHEMA_GET, SCHEMA_SAVE, SCHEMA_SEARCH, Tools
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +51,8 @@ def register(ctx) -> None:
                       description=SCHEMA_SAVE["description"], emoji="🔖")
     ctx.register_tool(name="brief_search", toolset=service.PLUGIN, schema=SCHEMA_SEARCH, handler=tools.search,
                       description=SCHEMA_SEARCH["description"], emoji="🔎")
+    ctx.register_tool(name="brief_digest", toolset=service.PLUGIN, schema=SCHEMA_DIGEST, handler=tools.digest,
+                      description=SCHEMA_DIGEST["description"], emoji="🗞️")
     ctx.register_tool(name="brief_get", toolset=service.PLUGIN, schema=SCHEMA_GET, handler=tools.get,
                       description=SCHEMA_GET["description"], emoji="📰")
 

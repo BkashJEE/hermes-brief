@@ -91,3 +91,21 @@ def brief_markdown(item: dict) -> str:
     if b.get("confidence") and b["confidence"] != "full":
         lines += ["", f"(Read: {b['confidence'].replace('_', ' ')})"]
     return "\n".join(lines)
+
+
+def digest_markdown(items: list[dict], hours: float = 24) -> str:
+    """'What you saved' in one glance: one line per item, grouped by folder. No model call."""
+    if not items:
+        return f"Nothing saved in the last {int(hours)} hours."
+    by_folder: dict[str, list[dict]] = {}
+    for it in items:
+        by_folder.setdefault(it.get("folder") or "Inbox", []).append(it)
+    lines = [f"**You saved {len(items)} thing{'s' if len(items) != 1 else ''} in the last {int(hours)} hours**"]
+    for folder, its in by_folder.items():
+        lines += ["", f"**{folder}**"]
+        for it in its:
+            b = it.get("brief") or {}
+            head = b.get("headline") or it.get("title") or it.get("url")
+            extra = f" Next: {b['next_step']}" if b.get("next_step") else ""
+            lines.append(f"- {head} ({it.get('url')}){extra}")
+    return "\n".join(lines)

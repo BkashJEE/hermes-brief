@@ -35,6 +35,8 @@ def main(port):
     worker = service.Worker(store, lambda: LLM())
     service.wire_routes(app.router, Adapter(), store, worker, "mock")
     app.router.add_get("/test-article", lambda r: web.Response(text=ARTICLE, content_type="text/html"))
+    # test only: what the Desktop "Connect Chrome" button does (dashboard/plugin_api.py /pair/start)
+    app.router.add_post("/test/pair-start", lambda r: web.json_response(store.start_pairing()))
     app.router.add_post("/v1/chat/completions", chat)
     async def start(a): worker.start()
     app.on_startup.append(start)

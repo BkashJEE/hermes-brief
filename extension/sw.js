@@ -1,4 +1,5 @@
 // Hermes Brief service worker: right-click menus, the shortcut, the watched "Hermes" bookmarks folder, notifications.
+// It reads a page only when you save it (button, menu, shortcut or a bookmark of the tab you're on).
 import { api, readTab, settings } from './lib.js'
 
 chrome.runtime.onInstalled.addListener(async () => {
@@ -6,16 +7,12 @@ chrome.runtime.onInstalled.addListener(async () => {
     chrome.contextMenus.create({ id: 'save-link', title: 'Save link to Hermes', contexts: ['link'] })
     chrome.contextMenus.create({ id: 'save-page', title: 'Save page to Hermes', contexts: ['page', 'frame', 'video'] })
     chrome.contextMenus.create({ id: 'save-selection', title: 'Save page + highlight to Hermes', contexts: ['selection'] })
-    chrome.contextMenus.create({ id: 'ask', title: 'Ask Hermes about this page', contexts: ['page', 'selection'] })
   })
   await ensureFolder()
-  if (!(await settings()).key) chrome.runtime.openOptionsPage()
+  if (!(await settings()).key) chrome.runtime.openOptionsPage()   // first run: pair with Hermes
 })
 
-chrome.sidePanel.setPanelBehavior?.({ openPanelOnActionClick: false }).catch(() => {})
-
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  if (info.menuItemId === 'ask') return chrome.sidePanel.open({ tabId: tab.id })
   if (info.menuItemId === 'save-link') return saveUrl(info.linkUrl, { source: 'link', title: info.selectionText || '' })
   return saveTab(tab, { source: info.menuItemId === 'save-selection' ? 'selection' : 'menu' })
 })
@@ -23,7 +20,6 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 chrome.commands.onCommand.addListener(async (command, tab) => {
   tab = tab || (await chrome.tabs.query({ active: true, currentWindow: true }))[0]
   if (!tab) return
-  if (command === 'open-panel') return chrome.sidePanel.open({ tabId: tab.id })
   if (command === 'save-page') return saveTab(tab, { source: 'shortcut' })
 })
 

@@ -1,8 +1,11 @@
 """The part that runs in the gateway: API-server routes for the extension and Desktop, and the brief worker.
 
-Routes (all under /api/plugins/hermes-brief, all behind the API server's own auth check — its paired loopback
-token or API key; nothing here answers unauthenticated):
+Routes (all under /api/plugins/hermes-brief). Every route except /pair needs either the API server's own auth (its
+API key) or a device token this plugin issued to the Chrome extension through pairing:
 
+    POST   /pair                      {code, name} -> {token}. The only unauthenticated route: it needs a 6-digit
+                                      code shown on the Desktop Briefs page, valid 5 minutes, used once; five wrong
+                                      codes cancel all open codes.
     GET    /status                    plugin version, profile, counts
     POST   /items                     save {url, title?, folder?, kind?, content?, selection?, note?, source?, meta?}
     GET    /items?q=&folder=&days=    search saved items (newest first)
@@ -12,6 +15,7 @@ token or API key; nothing here answers unauthenticated):
     POST   /items/{id}/move           {folder}
     DELETE /items/{id}
     GET    /folders                   folder names with counts
+    GET    /digest?hours=24           what you saved in the last N hours, one line each, by folder
 
 The worker briefs anything with status 'new': it reads the link itself when the browser sent no text, then makes
 one ctx.llm call. It polls the database, so items saved by a CLI tool call in another process get briefed too.
@@ -29,7 +33,7 @@ from pathlib import Path
 from typing import Any, Callable, Optional
 
 from . import readers
-from .brief import write_brief
+from .brief import digest_markdown, write_brief
 from .store import Store
 
 logger = logging.getLogger(__name__)
@@ -133,10 +137,14 @@ class Worker:
             self.store.set_status(item["id"], "error", error=str(exc)[:300])
 
 
-def _authorize(adapter: Any, request: Any):
+def _authorize(adapter: Any, request: Any, store: Optional[Store] = None):
     from aiohttp import web
 
     refuse = web.json_response({"error": "Not authorized"}, status=401, headers={"Cache-Control": "no-store"})
+    if store is not None:
+        auth = request.headers.get("Authorization", "")
+        if auth.startswith("Bearer hb_") and store.device_for(auth[7:].strip()):
+            return None
     check = getattr(adapter, "_check_auth", None)
     if not callable(check):
         return refuse
@@ -151,7 +159,7 @@ def wire_routes(router: Any, adapter: Any, store: Store, worker: Worker, profile
 
     def guarded(fn):
         async def handler(request):
-            denied = _authorize(adapter, request)
+            denied = _authorize(adapter, request, store)
             if denied is not None:
                 return denied
             worker.remember_scope()
@@ -227,6 +235,23 @@ def wire_routes(router: Any, adapter: Any, store: Store, worker: Worker, profile
     async def folders(_req):
         return {"folders": store.folders()}
 
+    async def pair(request):
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        token = store.finish_pairing(str(body.get("code") or ""), str(body.get("name") or "Chrome"))
+        if not token:
+            return web.json_response({"error": "That code is wrong or expired. Get a new one on the Briefs page."}, status=403)
+        return web.json_response({"token": token}, headers={"Cache-Control": "no-store"})
+
+    async def digest(req):
+        hours = float(req.query.get("hours") or 24)
+        items = store.search(since=time.time() - hours * 3600, limit=100)
+        return {"hours": hours, "count": len(items), "markdown": digest_markdown(items, hours)}
+
+    router.add_post(f"{BASE}/pair", pair)
+    router.add_get(f"{BASE}/digest", guarded(digest))
     router.add_get(f"{BASE}/status", guarded(status))
     router.add_post(f"{BASE}/items", guarded(save))
     router.add_get(f"{BASE}/items", guarded(search))
