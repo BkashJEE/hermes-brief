@@ -1,4 +1,4 @@
-// Shared by the service worker, popup, side panel and options page.
+// Shared by the service worker, popup and options page.
 
 export const DEFAULTS = { base: 'http://127.0.0.1:8642', key: '', folderName: 'Hermes', notify: true }
 

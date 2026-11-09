@@ -23,7 +23,7 @@ chrome.commands.onCommand.addListener(async (command, tab) => {
   if (command === 'save-page') return saveTab(tab, { source: 'shortcut' })
 })
 
-// Popup and side panel ask the worker to save, so a save finishes even if they close.
+// The popup asks the worker to save, so a save finishes even if the popup closes.
 chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   if (msg?.type === 'save-tab') {
     chrome.tabs.get(msg.tabId).then(tab => saveTab(tab, { source: 'button', folder: msg.folder, note: msg.note }))
