@@ -56,7 +56,11 @@ saving and remembering, and the two work side by side.
    Capabilities → Plugins → Hermes Brief.
 2. **The Chrome extension** (Chrome, Edge, Brave, Arc, Chromium): open `chrome://extensions`, switch on
    *Developer mode*, click *Load unpacked* and pick the `extension/` folder of this repo.
-3. **Connect:** in Hermes Desktop open **Briefs** → **Connect Chrome**. Type the 6-digit code into the page the
+3. **Let Hermes answer the browser:** the extension's Connect page shows one line like
+   `API_SERVER_CORS_ORIGINS=chrome-extension://<its id>`. Add it to `~/.hermes/.env` (keep the other lines) and run
+   `hermes gateway restart`. Hermes's API server only answers browsers on that allowlist, so without it every call is
+   refused (403). The id comes from the folder you loaded, so it stays the same across reloads.
+4. **Connect:** in Hermes Desktop open **Briefs** → **Connect Chrome**. Type the 6-digit code into the page the
    extension opened and click *Connect*. (The Hermes API server must be on: `API_SERVER_ENABLED=true`.)
 
 On a multi-profile gateway (`gateway.multiplex_profiles`), enable the plugin in the **default** profile too: the API

@@ -1,8 +1,10 @@
-import { api, pair, settings, DEFAULTS } from '../lib.js'
+import { api, pair, settings, DEFAULTS, originLine } from '../lib.js'
 const $ = id => document.getElementById(id)
 const s = await settings()
 $('base').value = s.base; $('folder').value = s.folderName; $('notify').checked = s.notify
 $('key').value = s.key && !s.key.startsWith('hb_') ? s.key : ''
+$('origin').textContent = originLine()
+$('copyOrigin').onclick = async () => { await navigator.clipboard.writeText(originLine()); $('copyOrigin').textContent = 'Copied'; setTimeout(() => { $('copyOrigin').textContent = 'Copy' }, 1500) }
 const localBase = v => /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?\/?$/.test(v)
 
 async function test(out) {

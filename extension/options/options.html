@@ -6,12 +6,18 @@
 <p class="muted">The extension talks only to your own Hermes on this computer. Nothing goes anywhere else.</p>
 
 <div class="step card">
-  <strong>1. Get a code</strong>
+  <strong>1. Let Hermes answer this browser</strong>
+  <p class="muted small" style="margin:6px 0 0">Hermes's API server only answers browsers on its allowlist. Add this line to <b>~/.hermes/.env</b> (keep the other lines), then run <code>hermes gateway restart</code>:</p>
+  <div class="row" style="margin-top:8px"><code id="origin" class="grow" style="font-size:12px;word-break:break-all"></code><button id="copyOrigin" class="ghost">Copy</button></div>
+</div>
+
+<div class="step card">
+  <strong>2. Get a code</strong>
   <p class="muted small" style="margin:6px 0 0">In Hermes Desktop open <b>Briefs</b> and click <b>Connect Chrome</b>. You'll see a 6-digit code (it works for 5 minutes).</p>
 </div>
 
 <div class="step card">
-  <strong>2. Enter it here</strong>
+  <strong>3. Enter it here</strong>
   <input id="code" class="code" inputmode="numeric" maxlength="7" placeholder="000000" autocomplete="one-time-code" style="margin-top:10px">
   <div class="row" style="margin-top:10px"><button id="connect">Connect</button><span id="out" class="small"></span></div>
 </div>

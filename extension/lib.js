@@ -12,6 +12,15 @@ export function apiRoot(s) {
   return (s.base || DEFAULTS.base).replace(/\/+$/, '')
 }
 
+// Hermes's API server only answers browsers whose origin is on its allowlist (API_SERVER_CORS_ORIGINS); an empty 403
+// means this extension's origin is not on it yet. The line below is exactly what to add.
+export function originLine() {
+  return `API_SERVER_CORS_ORIGINS=chrome-extension://${chrome.runtime.id}`
+}
+export function originHelp() {
+  return `Hermes doesn't allow this browser yet. Add this line to ~/.hermes/.env (keep the other lines), then run hermes gateway restart:\n${originLine()}`
+}
+
 export async function api(path, { method = 'GET', body } = {}) {
   const s = await settings()
   if (!s.key) throw new Error('Connect the extension to Hermes first: open its options and enter the pairing code.')
@@ -21,6 +30,7 @@ export async function api(path, { method = 'GET', body } = {}) {
     body: body ? JSON.stringify(body) : undefined,
   })
   if (res.status === 401) throw new Error('Hermes no longer knows this browser. Pair it again in the extension options.')
+  if (res.status === 403 && !res.headers.get('content-type')) throw new Error(originHelp())
   if (res.status === 404) throw new Error('Hermes Brief is not running on that Hermes. Enable the plugin and restart the gateway.')
   if (!res.ok) throw new Error(`Hermes answered ${res.status}`)
   return res.json()
@@ -100,6 +110,7 @@ export async function pair(base, code) {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ code, name: `${navigator.userAgentData?.brands?.find(b => !/Not|Chromium/.test(b.brand))?.brand || 'Chrome'} on ${navigator.userAgentData?.platform || navigator.platform}` }),
   })
+  if (res.status === 403 && !res.headers.get('content-type')) throw new Error(originHelp())
   if (res.status === 404) throw new Error('Hermes Brief is not running at that address. Is the plugin enabled and the gateway restarted?')
   const body = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(body.error || `Hermes answered ${res.status}`)

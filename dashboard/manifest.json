@@ -2,7 +2,7 @@
   "name": "hermes-brief",
   "label": "Briefs",
   "description": "Backend for the Briefs page in Hermes Desktop: the links you saved from Chrome and their briefs.",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "api": "plugin_api.py",
   "tab": {
     "hidden": true
